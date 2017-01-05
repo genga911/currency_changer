@@ -6,6 +6,8 @@
  * Time: 12:51
  */
 
-phpinfo();
+require_once './classes/calculator.class';
 
-?>
+$changer = new Calculator($_GET["from"], $_GET["to"], $_GET["cnt"]);
+
+echo $changer->convertCurrencies();

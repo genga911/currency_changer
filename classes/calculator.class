@@ -1,0 +1,59 @@
+<?php
+
+class Calculator
+{
+    function __construct($from, $to, $count)
+    {
+        $this->currencyFrom = substr($from, 0, 3);
+        $this->currencyTo = substr($to, 0, 3);
+        if (is_numeric($count)) {
+            $this->currencyHowMuch = $count;
+        } else {
+            $this->currencyHowMuch = 1;
+        }
+    }
+
+    function getRateFromDatabase()
+    {
+        $dbConnect = new PDO('mysql:host=localhost;dbname=currency', "currency", "password");
+        $query = $dbConnect->prepare("select rate from exchange where ex_from like :ex_from and ex_to like :ex_to");
+        $query->bindParam(':ex_from', $this->currencyFrom);
+        $query->bindParam(':ex_to', $this->currencyTo);
+        $query->execute();
+        $result = $query->fetchAll();
+        $dbConnect = null;
+        return $result[0]["rate"];
+    }
+
+    function convertCurrencies()
+    {
+        $result = $this->getRateFromDatabase() * $this->currencyHowMuch;
+        return $result;
+    }
+
+    function updateRatesToDatabase($from, $to) {
+        $json = file_get_contents("https://query.yahooapis.com/v1/public/yql?q=select+*+from+yahoo.finance.xchange+where+pair+=+%22" . $from . $to . "%22&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=");
+        $new_rate = json_decode($json);
+        $rate = $new_rate->query->results->rate->Rate;
+        $dbConnect = new PDO('mysql:host=localhost;dbname=currency', "currency", "password");
+        if ($this->getRateFromDatabase() == null) {
+            echo "new rate";
+            $query = $dbConnect->prepare("insert into exchange (ex_to, ex_from, rate) values (:ex_to, :ex_from, :rate)");
+            $query->bindParam(':ex_from', $from);
+            $query->bindParam(':ex_to', $to);
+            $query->bindParam(':rate', $rate);
+            $query->execute();
+            $dbConnect = null;
+        } else {
+            echo "update rate";
+            $query = $dbConnect->prepare("update exchange set rate = :rate where ex_from like :ex_from and ex_to like :ex_to");
+            $query->bindParam(':ex_from', $from);
+            $query->bindParam(':ex_to', $to);
+            $query->bindParam(':rate', $rate);
+            $query->execute();
+            $dbConnect = null;
+        }
+
+    }
+
+}
